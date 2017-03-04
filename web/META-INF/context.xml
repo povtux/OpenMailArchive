@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context>
+    <!-- Database -->
+    <Resource name="jdbc/OpenMailArchDB" auth="Container"
+              type="javax.sql.DataSource"
+              maxActive="100"
+              maxIdle="30"
+              maxWait="10000"
+              username="OMAuser"
+              password="OMApass"
+              driverClassName="com.mysql.jdbc.Driver"
+              url="jdbc:mysql://localhost:3306/oma"/>
+
+    <!-- Lucene index folder -->
+    <Parameter name="luceneStoreBasePath" value="/var/OpenMailArchiveStore/lucene/" override="false"/>
+
+    <!-- .eml files store -->
+    <Parameter name="mailStoreBasePath" value="/var/OpenMailArchiveStore/mails/" override="false"/>
+
+    <!-- SMTP Daemon -->
+    <Parameter name="SMTPPort" value="2525" override="false"/>
+</Context>
