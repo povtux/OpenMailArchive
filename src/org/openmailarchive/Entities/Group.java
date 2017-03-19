@@ -53,7 +53,7 @@ public class Group {
         }
 
         Context initCtx;
-        Connection conn = null;
+        Connection conn;
         try {
             initCtx = new InitialContext();
             Context envCtx = (Context) initCtx.lookup("java:comp/env");
@@ -91,7 +91,7 @@ public class Group {
 
             List<String> members = new ArrayList<>();
             while (rsMembers.next()) {
-                members.add(rsMembers.getString("username"));
+                members.add(rsMembers.getString(1));
             }
             rsMembers.close();
             stmt.close();
@@ -109,7 +109,7 @@ public class Group {
         return grpid;
     }
 
-    public void setGrpid(int grpid) {
+    private void setGrpid(int grpid) {
         this.grpid = grpid;
     }
 
@@ -117,7 +117,7 @@ public class Group {
         return name;
     }
 
-    public void setName(String name) {
+    private void setName(String name) {
         this.name = name;
     }
 
@@ -157,7 +157,7 @@ public class Group {
 
     private void execUpdate(String query, String member) {
         Context initCtx;
-        Connection conn = null;
+        Connection conn;
         try {
             initCtx = new InitialContext();
             Context envCtx = (Context) initCtx.lookup("java:comp/env");

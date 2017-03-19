@@ -55,7 +55,7 @@ public class User {
         String queryMail = "SELECT orgid, firstname, lastname, active FROM user WHERE username=?";
 
         Context initCtx;
-        Connection conn = null;
+        Connection conn;
         try {
             initCtx = new InitialContext();
             Context envCtx = (Context) initCtx.lookup("java:comp/env");
@@ -95,7 +95,7 @@ public class User {
             ResultSet rsGrps = stmtGrps.executeQuery();
 
             while (rsGrps.next()) {
-                Group g = Group.load(rsGrps.getInt("grpid"), false);
+                Group g = Group.load(rsGrps.getInt(1), false);
                 assert g != null;
                 g.setOrg(usr.getOrg());
                 groups.add(g);
@@ -115,7 +115,7 @@ public class User {
         String queryMail = "SELECT COUNT(*) FROM user WHERE username=? AND passwd=PASSWORD(?)";
 
         Context initCtx;
-        Connection conn = null;
+        Connection conn;
         int res = 0;
         try {
             initCtx = new InitialContext();
@@ -149,7 +149,7 @@ public class User {
         return username;
     }
 
-    public void setUsername(String username) {
+    private void setUsername(String username) {
         this.username = username;
     }
 
@@ -165,7 +165,7 @@ public class User {
         return org;
     }
 
-    public void setOrg(Organisation org) {
+    private void setOrg(Organisation org) {
         this.org = org;
     }
 
@@ -173,7 +173,7 @@ public class User {
         return firstname;
     }
 
-    public void setFirstname(String firstname) {
+    private void setFirstname(String firstname) {
         this.firstname = firstname;
     }
 
@@ -181,7 +181,7 @@ public class User {
         return lastname;
     }
 
-    public void setLastname(String lastname) {
+    private void setLastname(String lastname) {
         this.lastname = lastname;
     }
 
@@ -189,7 +189,7 @@ public class User {
         return is_active;
     }
 
-    public void setIs_active(int is_active) {
+    private void setIs_active(int is_active) {
         this.is_active = is_active;
     }
 
@@ -197,7 +197,7 @@ public class User {
         return groups;
     }
 
-    public void setGroups(List<Group> groups) {
+    private void setGroups(List<Group> groups) {
         this.groups = groups;
     }
 }

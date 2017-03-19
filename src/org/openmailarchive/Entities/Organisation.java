@@ -47,7 +47,7 @@ public class Organisation {
         String queryOrg = "SELECT orgname FROM organisation WHERE orgid=?";
 
         Context initCtx;
-        Connection conn = null;
+        Connection conn;
         try {
             initCtx = new InitialContext();
             Context envCtx = (Context) initCtx.lookup("java:comp/env");
@@ -99,7 +99,7 @@ public class Organisation {
 
     public boolean save() {
         Context initCtx;
-        Connection conn = null;
+        Connection conn;
         int res = 0;
         if (id == 0) {
             // insert
@@ -152,7 +152,7 @@ public class Organisation {
         return id;
     }
 
-    public void setId(int id) {
+    private void setId(int id) {
         this.id = id;
     }
 
@@ -160,7 +160,7 @@ public class Organisation {
         return name;
     }
 
-    public void setName(String name) {
+    private void setName(String name) {
         this.name = name;
     }
 
@@ -192,7 +192,7 @@ public class Organisation {
 
     private void execUpdate(String query, String member) {
         Context initCtx;
-        Connection conn = null;
+        Connection conn;
         try {
             initCtx = new InitialContext();
             Context envCtx = (Context) initCtx.lookup("java:comp/env");

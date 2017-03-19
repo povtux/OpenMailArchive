@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--suppress XmlUnboundNsPrefix -->
 <Context>
     <!-- Database -->
     <Resource name="jdbc/OpenMailArchDB" auth="Container"
@@ -9,7 +10,7 @@
               username="OMAuser"
               password="OMApass"
               driverClassName="com.mysql.jdbc.Driver"
-              url="jdbc:mysql://localhost:3306/oma"/>
+              url="jdbc:mysql://localhost:3306/oma?useSSL=false"/>
 
     <!-- Lucene index folder -->
     <Parameter name="luceneStoreBasePath" value="/var/OpenMailArchiveStore/lucene/" override="false"/>

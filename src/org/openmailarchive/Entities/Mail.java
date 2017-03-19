@@ -2,7 +2,11 @@ package org.openmailarchive.Entities;
 
 import org.apache.commons.lang.NullArgumentException;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -136,6 +140,7 @@ public class Mail {
             stmtMail.setString(1, mailid);
             stmtMail.setString(2, filepath);
             stmtMail.setString(3, mailfrom);
+            if (dt == null) dt = Timestamp.from(Instant.now());
             stmtMail.setTimestamp(4, dt);
             stmtMail.setString(5, subject);
             stmtMail.setString(6, body);
