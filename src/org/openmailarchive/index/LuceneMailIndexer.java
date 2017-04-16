@@ -12,6 +12,8 @@ import org.apache.lucene.store.NIOFSDirectory;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -32,8 +34,10 @@ import java.util.Map;
  *
  * Created by pov on 4/03/17.
  */
-public class LuceneMailIndexer {
+public class LuceneMailIndexer extends Thread {
     private IndexWriter w;
+    private List<Document> toWrite;
+    private boolean mustExist = false;
 
     public LuceneMailIndexer(String indexDir) {
         StandardAnalyzer analyzer = new StandardAnalyzer();
@@ -46,13 +50,16 @@ public class LuceneMailIndexer {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        toWrite = new ArrayList<>();
     }
 
     public void indexMail(String mailId, String body, Map<String, String> attachments) throws IOException {
         Document doc = new Document();
         doc.add(new StringField("mailId", mailId, Field.Store.YES));
         doc.add(new TextField("body", body, Field.Store.YES));
-        w.addDocument(doc);
+        //w.addDocument(doc);
+        toWrite.add(doc);
 
         for (String fileName:
              attachments.keySet()) {
@@ -60,17 +67,43 @@ public class LuceneMailIndexer {
             doc.add(new StringField("mailId", mailId, Field.Store.YES));
             doc.add(new TextField("attachementName", fileName, Field.Store.YES));
             doc.add(new TextField("attachementBody", attachments.get(fileName), Field.Store.YES));
-            w.addDocument(doc);
+            //w.addDocument(doc);
+            toWrite.add(doc);
         }
 
-        w.commit();
+        //w.commit();
     }
 
-    public void end() {
+    protected void end() {
         try {
             w.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void run() {
+        do {
+            while (toWrite.size() > 0) {
+                try {
+                    w.addDocument(toWrite.get(0));
+                    w.commit();
+                    toWrite.remove(0);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            try {
+                sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        } while (!mustExist);
+        end();
+    }
+
+    public void setMustExist() {
+        mustExist = true;
     }
 }

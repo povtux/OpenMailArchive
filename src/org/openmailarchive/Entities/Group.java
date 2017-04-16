@@ -3,6 +3,7 @@ package org.openmailarchive.Entities;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
+import javax.servlet.ServletContext;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -41,7 +42,7 @@ public class Group {
      * @param id
      * @return Group or null if not found
      */
-    public static Group load(int id, boolean organisationFromDb) {
+    public static Group load(int id, boolean organisationFromDb, ServletContext context) {
         Group grp = new Group();
         grp.setGrpid(id);
 
@@ -73,8 +74,9 @@ public class Group {
 
             if (rsMail.next()) {
                 grp.setName(rsMail.getString("name"));
+                context.log("GROUP LOAD: found in DB: " + grp.getName());
                 if (organisationFromDb)
-                    grp.setOrg(Organisation.load(rsMail.getInt("orgid")));
+                    grp.setOrg(Organisation.load(rsMail.getInt("orgid"), context));
 
                 rsMail.close();
                 stmt.close();
@@ -99,7 +101,7 @@ public class Group {
             grp.setMembers(members);
 
         } catch (NamingException | SQLException e) {
-            e.printStackTrace();
+            context.log(e.getMessage(), e);
         }
 
         return grp;

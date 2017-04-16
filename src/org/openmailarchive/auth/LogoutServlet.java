@@ -25,15 +25,15 @@ import java.io.IOException;
  * <p>
  * Created by pov on 18/03/17.
  */
-@WebServlet("/logout")
+@WebServlet(urlPatterns = {"/logout"}, name = "logout")
 public class LogoutServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         request.getSession().invalidate();
-        response.sendRedirect("login.jsp");
+        response.sendRedirect(request.getContextPath() + "/login");
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         request.getSession().invalidate();
-        response.sendRedirect("login.jsp");
+        response.sendRedirect(request.getContextPath() + "/login");
     }
 }

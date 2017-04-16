@@ -60,9 +60,11 @@ import java.util.Base64.Decoder;
 class MyMessageHandlerFactory implements MessageHandlerFactory {
 
     private final ServletContext context;
+    private final LuceneMailIndexer lmi;
 
-    MyMessageHandlerFactory(ServletContext c) {
+    MyMessageHandlerFactory(ServletContext c, LuceneMailIndexer lmi) {
         this.context = c;
+        this.lmi = lmi;
     }
 
     public MessageHandler create(MessageContext ctx) {
@@ -90,6 +92,7 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
         public void done() {
             MimeContentHandler contentHandler = new MimeContentHandler();
             try {
+                context.log("done: debut");
                 // configure parsing
                 MimeConfig mime4jParserConfig = new MimeConfig();
                 BodyDescriptorBuilder bodyDescriptorBuilder = new DefaultBodyDescriptorBuilder();
@@ -126,6 +129,7 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
                 }
                 msg.addHeader(new RawField("Message-ID", id));
             }
+            context.log("done: " + msg.searchHeader("Message-ID"));
             // Check if mail ID is not already present. It might come multiple times if multiple recipients or misconfiguration of front mail server
             Context initCtx;
             Connection conn = null;
@@ -133,9 +137,7 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
                 initCtx = new InitialContext();
                 Context envCtx = (Context) initCtx.lookup("java:comp/env");
                 DataSource ds = (DataSource)envCtx.lookup("jdbc/OpenMailArchDB");
-
                 conn = ds.getConnection();
-
                 String query = String.format("SELECT COUNT(*) FROM `mail` WHERE `mailid`='%s'",
                         msg.searchHeader("Message-ID"));
                 Statement stmt = conn.createStatement();
@@ -154,13 +156,15 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
             }
 
             // write mail to disk
-            // TODO: clean message-id for filename <>...
-            String filepath = context.getInitParameter("mailStoreBasePath") +
-                    new SimpleDateFormat("yyyy/MM/dd/").format(new Date()) +
-                    msg.searchHeader("Message-ID") +
-                    ".eml";
-
+            String filepath = "";
             try {
+                // TODO: clean message-id for filename <>...
+                filepath = context.getInitParameter("mailStoreBasePath") +
+                        new SimpleDateFormat("yyyy/MM/dd/").format(new Date()) +
+                        msg.searchHeader("Message-ID") +
+                        ".eml";
+                context.log("done: " + filepath);
+
                 FileUtils.writeStringToFile(new File(filepath), completeMail, "UTF-8");
             } catch (IOException e) {
                 // log write to disk failed
@@ -239,26 +243,31 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
                 );
                 m.addAttachment(att);
 
+                //context.log("ATTACHMENT BODY: " + mp.getBody());
+
                 try {
-                    attachBody = tika.parseToString(
-                            decoder.wrap(
-                                    new ByteArrayInputStream(
-                                            mp.getBody().getBytes(StandardCharsets.UTF_8)
-                                    )
-                            )
-                    );
-                    // Add attachment to the Map for future creation of Lucene index
-                    attach.put(att.getFilename(), attachBody);
+                    if (mp.getBody() != null && mp.getBody().length() > 10) {
+                        attachBody = tika.parseToString(
+                                //   decoder.wrap(
+                                new ByteArrayInputStream(
+                                        mp.getBody().getBytes(StandardCharsets.US_ASCII)
+                                )
+                                // )
+                        );
+                        // Add attachment to the Map for future creation of Lucene index
+                        attach.put(att.getFilename(), attachBody);
+                    } else {
+                        context.log(mp.getBody());
+                    }
                 } catch (TikaException | IOException e) {
+                    context.log("ATTACHMENT BODY: " + mp.getBody());
                     context.log(String.format("'%s'", m.getMailid()), e);
                 }
             }
 
             // create Lucene index
-            LuceneMailIndexer lmi = new LuceneMailIndexer(context.getInitParameter("luceneStoreBasePath") );
             try {
                 lmi.indexMail(m.getMailid(), bodyString, attach);
-                lmi.end();
             } catch (IOException e) {
                 context.log(String.format("'%s'", m.getMailid()), e);
             }
@@ -278,6 +287,8 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
             } catch (SQLException e) {
                 context.log(String.format("'%s'", m.getMailid()), e);
             }
+
+            context.log("SAVED: " + m.getMailid());
         }
 
     }

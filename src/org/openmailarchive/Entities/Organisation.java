@@ -3,6 +3,7 @@ package org.openmailarchive.Entities;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
+import javax.servlet.ServletContext;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -40,7 +41,7 @@ public class Organisation {
      * @param id
      * @return Organisation or null if not found
      */
-    public static Organisation load(int id) {
+    public static Organisation load(int id, ServletContext context) {
         Organisation org = new Organisation();
         org.setId(id);
 
@@ -67,6 +68,7 @@ public class Organisation {
 
             if (rsOrg.next()) {
                 org.setName(rsOrg.getString("orgname"));
+                context.log("ORGANISATION LOAD: found in DB: " + org.getName());
                 rsOrg.close();
                 stmtMail.close();
             } else {
@@ -81,8 +83,10 @@ public class Organisation {
             ResultSet rsDom = stmt.executeQuery();
 
             List<String> doms = new ArrayList<>();
-            while (rsDom.next())
+            while (rsDom.next()) {
                 doms.add(rsDom.getString("domain"));
+                context.log("ORGANISATION LOAD: " + org.getName() + " ADD DOMAIN: " + rsDom.getString("domain"));
+            }
 
             rsDom.close();
             stmt.close();
@@ -90,7 +94,7 @@ public class Organisation {
             org.setDomains(doms);
 
         } catch (NamingException | SQLException e) {
-            e.printStackTrace();
+            context.log(e.getMessage(), e);
         }
 
 

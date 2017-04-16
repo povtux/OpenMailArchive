@@ -29,7 +29,7 @@ import java.util.Map;
  * <p>
  * Created by pov on 18/03/17.
  */
-@WebServlet("/login")
+@WebServlet(urlPatterns = {"/login"}, name = "login")
 public class LoginServlet extends HttpServlet {
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -38,6 +38,8 @@ public class LoginServlet extends HttpServlet {
         String username = request.getParameter("username");
         String password = request.getParameter("password");
         Map<String, String> messages = new HashMap<>();
+
+        getServletContext().log("LOGIN: try to authenticate user: " + username);
 
         if (username == null || username.isEmpty()) {
             messages.put("username", "Please enter username");
@@ -49,13 +51,17 @@ public class LoginServlet extends HttpServlet {
 
         if (messages.isEmpty()) {
             if (User.authenticate(username, password)) {
-                user = User.load(username);
-
+                getServletContext().log("LOGIN: authenticated user: " + username);
+                user = User.load(username, getServletContext());
+                getServletContext().log("LOGIN: loaded user: " + username);
                 request.getSession().setAttribute("user", user);
+                getServletContext().log("LOGIN: session updated user: " + username);
                 response.sendRedirect(request.getContextPath() + "/index.jsp");
+                getServletContext().log("LOGIN: redirect user: " + username);
                 return;
             } else {
                 messages.put("login", "Unknown login, please try again");
+                getServletContext().log("LOGIN: bad auth for user: " + username);
             }
         }
 

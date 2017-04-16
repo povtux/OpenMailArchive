@@ -1,11 +1,20 @@
 package org.openmailarchive.search;
 
+import org.json.simple.JSONArray;
+import org.openmailarchive.Entities.User;
+
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.sql.DataSource;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 /**
  * This file is part of OpenMailArchive.
@@ -25,13 +34,28 @@ import java.io.IOException;
  *
  * Created by pov on 15/12/16.
  */
-@WebServlet(name = "SearchServlet")
+@WebServlet(name = "SearchServlet", urlPatterns = {"/search"})
 public class SearchServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        Context initCtx;
+        Connection conn;
+        try {
+            initCtx = new InitialContext();
+            Context envCtx = (Context) initCtx.lookup("java:comp/env");
+            DataSource ds = (DataSource) envCtx.lookup("jdbc/OpenMailArchDB");
+            conn = ds.getConnection();
 
+            DbSearch search = new DbSearch();
+            JSONArray json = search.defaultSearch(conn, (User) request.getSession().getAttribute("user"));
+
+            response.setContentType("application/json");
+            response.getWriter().write(json.toString());
+        } catch (SQLException | NamingException e) {
+            getServletContext().log(e.getMessage(), e);
+        }
     }
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-
+        doPost(request, response);
     }
 }

@@ -95,7 +95,10 @@ public class MimeContentHandler implements ContentHandler{
 
     @Override
     public void body(BodyDescriptor bd, InputStream is) throws MimeException, IOException {
-        String body = IOUtils.toString(is, bd.getCharset());
+        String charset = bd.getCharset();
+        if (charset == null) charset = "UTF8";
+        else if (charset.toLowerCase().equals("cp-850")) charset = "latin1";
+        String body = IOUtils.toString(is, charset);
         //System.out.println(bd.getMimeType());
         if(!inPart) {
             // assume a simple mail with only a body

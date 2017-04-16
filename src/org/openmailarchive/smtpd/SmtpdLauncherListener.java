@@ -17,6 +17,7 @@ package org.openmailarchive.smtpd; /**
  * Created by pov on 14/12/16.
  */
 
+import org.openmailarchive.index.LuceneMailIndexer;
 import org.subethamail.smtp.server.SMTPServer;
 
 import javax.servlet.ServletContext;
@@ -27,6 +28,7 @@ import javax.servlet.ServletContextListener;
 @javax.servlet.annotation.WebListener()
 public class SmtpdLauncherListener implements ServletContextListener {
     private SMTPServer smtpServer = null;
+    private LuceneMailIndexer lmi;
 
     // Public constructor is required by servlet spec
     public SmtpdLauncherListener() {
@@ -42,7 +44,10 @@ public class SmtpdLauncherListener implements ServletContextListener {
       */
         ServletContext c = sce.getServletContext();
 
-        MyMessageHandlerFactory myFactory = new MyMessageHandlerFactory(c) ;
+        lmi = new LuceneMailIndexer(c.getInitParameter("luceneStoreBasePath"));
+        lmi.start();
+
+        MyMessageHandlerFactory myFactory = new MyMessageHandlerFactory(c, lmi);
         smtpServer = new SMTPServer(myFactory);
         smtpServer.setPort(Integer.parseInt(c.getInitParameter("SMTPPort")));
         smtpServer.start();
@@ -54,5 +59,6 @@ public class SmtpdLauncherListener implements ServletContextListener {
          Application Server shuts down.
       */
       smtpServer.stop();
+        lmi.setMustExist();
     }
 }

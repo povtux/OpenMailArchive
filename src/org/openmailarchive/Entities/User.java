@@ -3,6 +3,7 @@ package org.openmailarchive.Entities;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
+import javax.servlet.ServletContext;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -40,6 +41,7 @@ public class User {
     private String lastname;
     private int is_active;
     private List<Group> groups;
+    private int is_org_admin;
 
 
     /**
@@ -48,11 +50,11 @@ public class User {
      * @param username
      * @return new user object populated with database information or null if not found
      */
-    public static User load(String username) {
+    public static User load(String username, ServletContext context) {
         User usr = new User();
         usr.setUsername(username);
 
-        String queryMail = "SELECT orgid, firstname, lastname, active FROM user WHERE username=?";
+        String queryMail = "SELECT orgid, firstname, lastname, active, org_admin FROM user WHERE username=?";
 
         Context initCtx;
         Connection conn;
@@ -63,28 +65,30 @@ public class User {
 
             conn = ds.getConnection();
 
-            PreparedStatement stmtMail = conn.prepareStatement(queryMail);
-            stmtMail.setString(1, username);
-            ResultSet rsMail = stmtMail.executeQuery();
+            PreparedStatement stmtUsr = conn.prepareStatement(queryMail);
+            stmtUsr.setString(1, username);
+            ResultSet rsUsr = stmtUsr.executeQuery();
 
-            if (rsMail.wasNull()) {
-                rsMail.close();
-                stmtMail.close();
+            if (rsUsr.wasNull()) {
+                rsUsr.close();
+                stmtUsr.close();
                 return null;
             }
 
-            if (rsMail.next()) {
-                usr.setFirstname(rsMail.getString("firstname"));
-                usr.setLastname(rsMail.getString("lastname"));
-                usr.setIs_active(rsMail.getInt("active"));
+            if (rsUsr.next()) {
+                context.log("USER LOAD: found in DB: " + username);
+                usr.setFirstname(rsUsr.getString("firstname"));
+                usr.setLastname(rsUsr.getString("lastname"));
+                usr.setIs_active(rsUsr.getInt("active"));
+                usr.setIs_org_admin(rsUsr.getInt("org_admin"));
 
-                usr.setOrg(Organisation.load(rsMail.getInt("orgid")));
+                usr.setOrg(Organisation.load(rsUsr.getInt("orgid"), context));
 
-                rsMail.close();
-                stmtMail.close();
+                rsUsr.close();
+                stmtUsr.close();
             } else {
-                rsMail.close();
-                stmtMail.close();
+                rsUsr.close();
+                stmtUsr.close();
                 return null;
             }
 
@@ -95,7 +99,7 @@ public class User {
             ResultSet rsGrps = stmtGrps.executeQuery();
 
             while (rsGrps.next()) {
-                Group g = Group.load(rsGrps.getInt(1), false);
+                Group g = Group.load(rsGrps.getInt(1), false, context);
                 assert g != null;
                 g.setOrg(usr.getOrg());
                 groups.add(g);
@@ -105,8 +109,9 @@ public class User {
 
             usr.setGroups(groups);
         } catch (NamingException | SQLException e) {
-            e.printStackTrace();
+            context.log(e.getMessage(), e);
         }
+        context.log("USER LOAD: loaded: " + username);
 
         return usr;
     }
@@ -199,5 +204,13 @@ public class User {
 
     private void setGroups(List<Group> groups) {
         this.groups = groups;
+    }
+
+    public int getIs_org_admin() {
+        return is_org_admin;
+    }
+
+    public void setIs_org_admin(int is_org_admin) {
+        this.is_org_admin = is_org_admin;
     }
 }
