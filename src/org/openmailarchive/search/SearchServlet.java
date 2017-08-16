@@ -45,11 +45,27 @@ public class SearchServlet extends HttpServlet {
             DataSource ds = (DataSource) envCtx.lookup("jdbc/OpenMailArchDB");
             conn = ds.getConnection();
 
-            DbSearch search = new DbSearch();
-            JSONArray json = search.defaultSearch(conn, (User) request.getSession().getAttribute("user"));
+            int pageOffset = 0;
+            if (request.getParameter("next") != null)
+                pageOffset = Integer.parseInt(request.getParameter("next"));
+
+            JSONArray json;
+            if (request.getParameter("query") != null)
+                /*json = search.querySearch(
+                        conn,
+                        (User) request.getSession().getAttribute("user"),
+                        pageOffset,
+                        request.getParameter("query"));*/
+                json = new JSONArray();
+            else {
+                DbSearch search = new DbSearch();
+                json = search.defaultSearch(conn, (User) request.getSession().getAttribute("user"), pageOffset);
+            }
 
             response.setContentType("application/json");
             response.getWriter().write(json.toString());
+
+            conn.close();
         } catch (SQLException | NamingException e) {
             getServletContext().log(e.getMessage(), e);
         }

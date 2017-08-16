@@ -39,6 +39,7 @@ import org.subethamail.smtp.MessageHandler;
 import org.subethamail.smtp.MessageHandlerFactory;
 import org.subethamail.smtp.RejectException;
 
+import javax.mail.internet.MimeUtility;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
@@ -151,6 +152,8 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
                         return;
                     }
                 }
+                rs.close();
+                stmt.close();
             } catch (NamingException | SQLException e) {
                 context.log(String.format("'%s'", msg.searchHeader("Message-ID")), e);
             }
@@ -158,10 +161,11 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
             // write mail to disk
             String filepath = "";
             try {
-                // TODO: clean message-id for filename <>...
                 filepath = context.getInitParameter("mailStoreBasePath") +
                         new SimpleDateFormat("yyyy/MM/dd/").format(new Date()) +
-                        msg.searchHeader("Message-ID") +
+                        msg.searchHeader("Message-ID")
+                                .replace('<', '_')
+                                .replace('>', '_') +
                         ".eml";
                 context.log("done: " + filepath);
 
@@ -179,8 +183,16 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
             m.setMailid(msg.searchHeader("Message-ID"));
             // From
             m.setMailfrom(msg.searchHeader("from"));
+            // X-Spam-Score
+            m.setSpamScore(Double.parseDouble(msg.searchHeader("X-Spam-Score")));
             // Subject
-            m.setSubject(msg.searchHeader("subject"));
+            try {
+                // encoded like =?utf-8...
+                m.setSubject(MimeUtility.decodeText(msg.searchHeader("subject")));
+            } catch (UnsupportedEncodingException e) {
+                // not encoded
+                m.setSubject(msg.searchHeader("subject"));
+            }
             // path to .eml file
             m.setFilepath(filepath);
 
@@ -238,8 +250,9 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
             String attachBody;
             Decoder decoder = Base64.getDecoder();
             for(MimePart mp: msg.getParts()) {
+                String[] mimeparts = mp.searchHeader("Content-Disposition").split("=");
                 Attachment att = new Attachment(mp.getMimeType(),
-                        mp.searchHeader("Content-Disposition").split("=")[1].trim()
+                        (mimeparts.length > 1) ? mimeparts[1] : ""
                 );
                 m.addAttachment(att);
 
@@ -267,7 +280,7 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
 
             // create Lucene index
             try {
-                lmi.indexMail(m.getMailid(), bodyString, attach);
+                lmi.indexMail(m.getMailid(), m.getSubject(), bodyString, m.getLuceneDt(), attach);
             } catch (IOException e) {
                 context.log(String.format("'%s'", m.getMailid()), e);
             }

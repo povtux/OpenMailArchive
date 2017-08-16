@@ -1,11 +1,11 @@
 package org.openmailarchive.Entities;
 
 import org.apache.commons.lang.NullArgumentException;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.sql.*;
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +40,7 @@ public class Mail {
     private String subject;
     private String body;
     private int bodyType;
+    private double spamScore = 0.0;
     private final List<Recipient> recipients;
     private final List<Attachment> attachments;
 
@@ -79,6 +80,10 @@ public class Mail {
         return dt;
     }
 
+    public String getLuceneDt() {
+        return new SimpleDateFormat("yyyyMMdd").format(dt);
+    }
+
     public void setDt(Timestamp dt) throws NullArgumentException {
         if(dt == null) throw new NullArgumentException("dt cannot be null");
         this.dt = dt;
@@ -111,6 +116,14 @@ public class Mail {
         this.bodyType = bodyType;
     }
 
+    public double getSpamScore() {
+        return spamScore;
+    }
+
+    public void setSpamScore(double spamScore) {
+        this.spamScore = spamScore;
+    }
+
     public List<Recipient> getRecipients() {
         return recipients;
     }
@@ -131,7 +144,7 @@ public class Mail {
 
         conn.setAutoCommit(false);
 
-        String insertMail = "INSERT INTO `mail`(`mailid`, `filepath`, `mailfrom`, `dt`, `subject`, `body`, `bodyType`) VALUES(?, ?, ?, ?, ?, ?, ?)";
+        String insertMail = "INSERT INTO mail(mailid, filepath, mailfrom, dt, subject, body, bodyType, spamScore) VALUES(?, ?, ?, ?, ?, ?, ?, ?)";
         String insertRecipient = "INSERT INTO `recipient`(`mailid`, `recipientType`, `recipient`) VALUES(?, ?, ?)";
         String insertAttachment = "INSERT INTO `attachment`(`mailid`, `mimeType`, `filename`) VALUES(?, ?, ?)";
 
@@ -145,6 +158,7 @@ public class Mail {
             stmtMail.setString(5, subject);
             stmtMail.setString(6, body);
             stmtMail.setInt(7, bodyType);
+            stmtMail.setDouble(8, spamScore);
             stmtMail.executeUpdate();
 
             PreparedStatement stmtRecip = conn.prepareStatement(insertRecipient);
@@ -170,5 +184,80 @@ public class Mail {
             return false;
         }
         return true;
+    }
+
+    public static Mail load(Connection conn, String mailid) throws SQLException {
+        Mail mail = new Mail();
+        mail.mailid = mailid;
+
+        String loadMail = "SELECT `filepath`, `mailfrom`, `dt`, `subject`, `body`, `bodyType` FROM mail WHERE mailid=?";
+        String loadRecipient = "SELECT `recipientType`, `recipient` FROM recipient WHERE mailid=?";
+        String loadAttachment = "SELECT `mimeType`, `filename` FROM attachment WHERE mailid=?";
+
+        ResultSet rs;
+        try {
+            PreparedStatement stmtMail = conn.prepareStatement(loadMail);
+            stmtMail.setString(1, mailid);
+            rs = stmtMail.executeQuery();
+            if (rs.next()) {
+                mail.filepath = rs.getString("filepath");
+                mail.mailfrom = rs.getString("mailfrom");
+                mail.dt = rs.getTimestamp("dt");
+                mail.subject = rs.getString("subject");
+                mail.body = rs.getString("body");
+                mail.bodyType = rs.getInt("bodyType");
+            }
+
+            PreparedStatement stmtRecip = conn.prepareStatement(loadRecipient);
+            stmtRecip.setString(1, mailid);
+            rs = stmtRecip.executeQuery();
+            while (rs.next()) {
+                mail.addRecipient(new Recipient(rs.getString(1), rs.getString(2)));
+                System.out.println("recipient");
+                System.out.println(rs.getString(1));
+                System.out.println(rs.getString(2));
+            }
+
+            PreparedStatement stmtAttach = conn.prepareStatement(loadAttachment);
+            stmtAttach.setString(1, mailid);
+            rs = stmtAttach.executeQuery();
+            while (rs.next()) {
+                mail.addAttachment(new Attachment(rs.getString(1), rs.getString(2)));
+                System.out.println("attachment");
+                System.out.println(rs.getString(1));
+                System.out.println(rs.getString(2));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+        return mail;
+    }
+
+    public JSONObject getJSON() {
+        JSONObject json = new JSONObject();
+        json.put("mailid", mailid);
+        json.put("mailfrom", mailfrom);
+        json.put("dt", dt.toString());
+        json.put("subject", subject);
+        json.put("body", body);
+        json.put("bodytype", bodyType);
+        JSONArray rec = new JSONArray();
+        for (Recipient r : recipients) {
+            JSONObject js = new JSONObject();
+            js.put("recipienttype", r.getType());
+            js.put("address", r.getAddress());
+            rec.add(js);
+        }
+        json.put("recipients", rec);
+        JSONArray att = new JSONArray();
+        for (Attachment a : attachments) {
+            JSONObject js = new JSONObject();
+            js.put("mimetype", a.getType());
+            js.put("filename", a.getFilename());
+            att.add(js);
+        }
+        json.put("attachments", att);
+        return json;
     }
 }

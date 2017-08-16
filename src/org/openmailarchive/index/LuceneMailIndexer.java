@@ -54,10 +54,12 @@ public class LuceneMailIndexer extends Thread {
         toWrite = new ArrayList<>();
     }
 
-    public void indexMail(String mailId, String body, Map<String, String> attachments) throws IOException {
+    public void indexMail(String mailId, String subject, String body, String dt, Map<String, String> attachments) throws IOException {
         Document doc = new Document();
         doc.add(new StringField("mailId", mailId, Field.Store.YES));
+        doc.add(new TextField("subject", subject, Field.Store.YES));
         doc.add(new TextField("body", body, Field.Store.YES));
+        doc.add(new StringField("date", dt, Field.Store.YES));
         //w.addDocument(doc);
         toWrite.add(doc);
 

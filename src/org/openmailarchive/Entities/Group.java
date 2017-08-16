@@ -100,6 +100,7 @@ public class Group {
 
             grp.setMembers(members);
 
+            conn.close();
         } catch (NamingException | SQLException e) {
             context.log(e.getMessage(), e);
         }
@@ -171,6 +172,9 @@ public class Group {
             stmt.setString(1, member);
             stmt.setInt(2, this.grpid);
             stmt.executeUpdate();
+            stmt.close();
+
+            conn.close();
         } catch (SQLException | NamingException e) {
             e.printStackTrace();
         }

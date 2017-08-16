@@ -108,6 +108,8 @@ public class User {
             stmtGrps.close();
 
             usr.setGroups(groups);
+
+            conn.close();
         } catch (NamingException | SQLException e) {
             context.log(e.getMessage(), e);
         }
@@ -143,6 +145,8 @@ public class User {
             if (rsMail.next()) {
                 res = rsMail.getInt(1);
             }
+
+            conn.close();
         } catch (SQLException | NamingException e) {
             e.printStackTrace();
         }

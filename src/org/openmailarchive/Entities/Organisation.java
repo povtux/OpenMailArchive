@@ -93,6 +93,7 @@ public class Organisation {
 
             org.setDomains(doms);
 
+            conn.close();
         } catch (NamingException | SQLException e) {
             context.log(e.getMessage(), e);
         }
@@ -126,6 +127,7 @@ public class Organisation {
 
                 rs.close();
                 stmt.close();
+                conn.close();
             } catch (NamingException | SQLException e) {
                 e.printStackTrace();
             }
@@ -144,6 +146,7 @@ public class Organisation {
                 stmt.setInt(2, id);
                 res = stmt.executeUpdate();
                 stmt.close();
+                conn.close();
             } catch (NamingException | SQLException e) {
                 e.printStackTrace();
             }
@@ -208,6 +211,7 @@ public class Organisation {
             stmt.setString(1, member);
             stmt.setInt(2, this.id);
             stmt.executeUpdate();
+            conn.close();
         } catch (SQLException | NamingException e) {
             e.printStackTrace();
         }
