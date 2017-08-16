@@ -50,15 +50,18 @@ public class SearchServlet extends HttpServlet {
                 pageOffset = Integer.parseInt(request.getParameter("next"));
 
             JSONArray json;
-            if (request.getParameter("query") != null)
-                /*json = search.querySearch(
+            DbSearch search = new DbSearch();
+            if (request.getParameter("query") != null) {
+                String query = request.getParameter("query");
+                getServletContext().log("QUERY: " + query);
+                json = search.querySearch(
                         conn,
                         (User) request.getSession().getAttribute("user"),
                         pageOffset,
-                        request.getParameter("query"));*/
-                json = new JSONArray();
+                        query);
+                //json = new JSONArray();
+            }
             else {
-                DbSearch search = new DbSearch();
                 json = search.defaultSearch(conn, (User) request.getSession().getAttribute("user"), pageOffset);
             }
 

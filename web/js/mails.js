@@ -9,6 +9,8 @@ MAILTEMPLATE =
     "<span class='date'>#DATE#</span>" +
     "</a></li>";
 
+var nextPage = 2;
+
 $(document).ready(function () {
     // recup de la liste des mails
     $.getJSON("search", function (data) {
@@ -25,7 +27,6 @@ $(document).ready(function () {
         });
     });
 
-    var nextPage = 2;
 
     // Each time the user scrolls
     $("#mailtable").scroll(function () {
@@ -36,7 +37,11 @@ $(document).ready(function () {
 
         var divScrollerTop = $("#mailtable").scrollTop();
         if (divScrollerTop >= scrollerEndPoint) {
-            $.getJSON("search?next=" + nextPage, function (data) {
+            var params = {next: nextPage};
+            if ($("#query")[0].value != "") {
+                params = {next: nextPage, query: $("#query")[0].value};
+            }
+            $.getJSON("search", params, function (data) {
                 data.forEach(function (element) {
                     mail = MAILTEMPLATE
                         .replace(new RegExp('#MAILID#', 'g'), element.mailid)
@@ -90,6 +95,24 @@ function display(mailid) {
 
             $("#mailcontent").html(content);
             $("#mailcontent").scrollTop(0);
+        });
+    });
+}
+
+function searchMails() {
+    nextPage = 2;
+    $.getJSON("search", {query: $("#query")[0].value}).done(function (data) {
+        $("#mailtable").empty();
+        i = 0;
+        data.forEach(function (element) {
+            mail = MAILTEMPLATE
+                .replace(new RegExp('#MAILID#', 'g'), element.mailid)
+                .replace('#MAILFROM#', element.mailfrom)
+                .replace('#DATE#', element.dt)
+                .replace('#SUBJECT#', element.subject);
+
+            $("#mailtable").append(mail);
+            i++;
         });
     });
 }

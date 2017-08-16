@@ -102,8 +102,8 @@
     </div><!-- /.container-fluid -->
 </nav>
 <div class="search">
-    <form action="search" method="post">
-        <input type="text" max="200" name="query">
+    <form id="searchform" onsubmit="searchMails();return false;">
+        <input max="200" name="query" id="query">
         <input type="submit" value="Search">
     </form>
 </div>

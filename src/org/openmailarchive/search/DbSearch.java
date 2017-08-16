@@ -10,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 /**
  * This file is part of OpenMailArchive.
@@ -30,9 +31,19 @@ import java.util.Objects;
  * Created by pov on 19/03/17.
  */
 public class DbSearch {
+    // TODO: make this parameter readable from config properties
     private static int mailsParPage = 20;
 
     public JSONArray defaultSearch(Connection conn, User currentUser, int pageOffset) {
+        return getJsonArrayFromSqlQuery(conn, currentUser, pageOffset, "");
+    }
+
+    public JSONArray querySearch(Connection conn, User currentUser, int pageOffset, String query) {
+        String whereClause = " AND (subject LIKE '%" + query + "%' OR body LIKE '%" + query + "%') ";
+        return getJsonArrayFromSqlQuery(conn, currentUser, pageOffset, whereClause);
+    }
+
+    private JSONArray getJsonArrayFromSqlQuery(Connection conn, User currentUser, int pageOffset, String whereClause) {
         JSONArray json = new JSONArray();
 
         // calculate records offset depending on page offset
@@ -40,10 +51,14 @@ public class DbSearch {
         if (pageOffset > 0)
             offset = " OFFSET " + pageOffset * mailsParPage;
 
+        // TODO: enable users not to use spamFilter from GUI.
         String spamFilter = "spamScore<5.0 AND ";
         String query = "SELECT mailid,mailfrom,dt,subject,body,bodyType FROM mail WHERE " + spamFilter +
                 getDefaultWhereClauseFromUser(conn, currentUser) +
+                whereClause +
                 " ORDER BY dt DESC LIMIT " + mailsParPage + offset;
+
+        Logger.getLogger("SEARCH").info("QUERY: " + query);
 
         try {
             PreparedStatement stmt = conn.prepareStatement(query);
@@ -117,12 +132,13 @@ public class DbSearch {
                 }
                 rs.close();
                 stmt.close();
-                whereClause = "mailid IN(SELECT mailid FROM recipient WHERE " + like1 + " ) OR " + like2;
+                whereClause = "(mailid IN(SELECT mailid FROM recipient WHERE " + like1 + " ) OR " + like2 + ")";
             } catch (SQLException e) {
                 e.printStackTrace();
             }
         } else {
-            whereClause = "mailid IN(SELECT mailid FROM recipient WHERE recipient LIKE \"%" + user.getUsername() + "%\" ) OR mailfrom LIKE \"%" + user.getUsername() + "%\"";
+            whereClause = "(mailid IN(SELECT mailid FROM recipient WHERE recipient LIKE \"%" +
+                    user.getUsername() + "%\" ) OR mailfrom LIKE \"%" + user.getUsername() + "%\")";
         }
 
         return whereClause;
