@@ -1,0 +1,73 @@
+.content {
+    width: 99%;
+    border: solid lightgray 1px;
+}
+
+.maillist {
+    width: 29%;
+    height: 80%;
+    background-color: darkgrey;
+    padding: 10px;
+    margin-right: 10px;
+    float: left;
+}
+
+#mailcontent {
+    width: 69%;
+    display: inline-block;
+    overflow: scroll;
+    height: 80%;
+}
+
+#mailtable {
+    margin: 2em auto !important;
+    padding: 0 !important;
+    width: 95% !important;
+    height: 95% !important;
+    overflow: auto !important;
+    text-align: center !important;
+    list-style-type: none !important;
+    background: none !important;
+}
+
+#mailtable a {
+    font-size: 10px;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #1b1b1b;
+    text-decoration: none;
+}
+
+.mailheader {
+    background-color: lightgray;
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 5px;
+}
+
+.mailheader span {
+    background-color: #2a85a0;
+    padding: 2px;
+    display: block;
+}
+
+.maillistelement {
+    padding: 5px;
+    background-color: lightgray;
+    font-size: 10px;
+}
+
+.from {
+    margin-right: 5px;
+    width: 49%;
+    display: inline-block;
+}
+
+.date {
+    text-align: center;
+    width: 49%;
+    display: inline-block;
+}
+
+.subject {
+    width: 100%;
+}

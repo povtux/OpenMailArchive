@@ -3,6 +3,7 @@
 <Context>
     <!-- Database -->
     <Resource name="jdbc/OpenMailArchDB" auth="Container"
+              factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"
               type="javax.sql.DataSource"
               maxActive="100"
               maxIdle="30"
@@ -10,7 +11,12 @@
               username="OMAuser"
               password="OMApass"
               driverClassName="com.mysql.jdbc.Driver"
-              url="jdbc:mysql://localhost:3306/oma?useSSL=false"/>
+              url="jdbc:mysql://localhost:3306/oma?useSSL=false"
+              removeAbandoned="true"
+              removeAbandonedTimeout="30"
+              logAbandoned="true"
+              defaultAutoCommit="true"
+    />
 
     <!-- Lucene index folder -->
     <Parameter name="luceneStoreBasePath" value="/var/OpenMailArchiveStore/lucene/" override="false"/>
