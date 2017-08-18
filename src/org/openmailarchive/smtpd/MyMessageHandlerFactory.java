@@ -28,11 +28,13 @@ import org.apache.james.mime4j.stream.MimeConfig;
 import org.apache.james.mime4j.stream.RawField;
 import org.apache.tika.Tika;
 import org.apache.tika.exception.TikaException;
+import org.jetbrains.annotations.Nullable;
 import org.openmailarchive.Entities.Attachment;
 import org.openmailarchive.Entities.Mail;
 import org.openmailarchive.Entities.Recipient;
 import org.openmailarchive.index.LuceneMailIndexer;
 import org.openmailarchive.smtpd.MimeHandling.MimeContentHandler;
+import org.openmailarchive.smtpd.MimeHandling.MimeMessage;
 import org.openmailarchive.smtpd.MimeHandling.MimePart;
 import org.subethamail.smtp.MessageContext;
 import org.subethamail.smtp.MessageHandler;
@@ -56,7 +58,6 @@ import java.sql.Statement;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.Base64.Decoder;
 
 class MyMessageHandlerFactory implements MessageHandlerFactory {
 
@@ -74,7 +75,9 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
 
     class Handler implements MessageHandler {
         final MessageContext ctx;
-        String completeMail;
+        private String completeMail;
+        private String bodyString;
+        private Map<String, String> attach;
 
         Handler(MessageContext ctx) {
             this.ctx = ctx;
@@ -107,9 +110,62 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
                 context.log("", e);
             }
 
-            org.openmailarchive.smtpd.MimeHandling.MimeMessage msg = contentHandler.getMessage();
+            MimeMessage msg = contentHandler.getMessage();
 
             // check if mail ID is present and not empty. if so, build one based on date, from, to, subject and md5 or size
+            msg = getMessageId(msg);
+            String msgId = msg.searchHeader("Message-ID");
+            context.log("done: " + msgId);
+
+            // Check if mail ID is not already present. It might come multiple times if multiple recipients or misconfiguration of front mail server
+            Connection conn = getConnection(msgId);
+
+            // check if already present
+            if (alreadyPresent(conn, msgId)) {
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                    context.log(String.format("'%s'", msgId), e);
+                }
+                return;
+            }
+
+            // write mail to disk
+            String filepath = writeToDisk(msg);
+
+            // create database record for mail & index data
+            Mail m = getMailFromMimeMessage(msg, filepath);
+
+            // create Lucene index
+            try {
+                lmi.indexMail(m.getMailid(), m.getSubject(), bodyString, m.getLuceneDt(), attach);
+            } catch (IOException e) {
+                context.log(String.format("'%s'", m.getMailid()), e);
+            }
+
+            // try to insert data in MySQL
+            try {
+                if (conn == null || conn.isClosed()) {
+                    conn = getConnection(msgId);
+                }
+                m.insert(conn);
+            } catch (SQLException e) {
+                context.log(String.format("'%s'", m.getMailid()), e);
+            }
+
+            // at the end, release DB connexion
+            try {
+                if (conn != null) {
+                    conn.close();
+                }
+            } catch (SQLException e) {
+                context.log(String.format("'%s'", m.getMailid()), e);
+            }
+
+            context.log("SAVED: " + m.getMailid());
+        }
+
+        private MimeMessage getMessageId(MimeMessage msg) {
             if(msg.searchHeader("Message-ID") == null || msg.searchHeader("Message-ID").equals("")) {
                 String id;
                 try {
@@ -130,38 +186,46 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
                 }
                 msg.addHeader(new RawField("Message-ID", id));
             }
-            context.log("done: " + msg.searchHeader("Message-ID"));
-            // Check if mail ID is not already present. It might come multiple times if multiple recipients or misconfiguration of front mail server
-            Context initCtx;
-            Connection conn = null;
+            return msg;
+        }
+
+        @Nullable
+        private Connection getConnection(String msgId) {
             try {
-                initCtx = new InitialContext();
+                Context initCtx = new InitialContext();
                 Context envCtx = (Context) initCtx.lookup("java:comp/env");
                 DataSource ds = (DataSource)envCtx.lookup("jdbc/OpenMailArchDB");
-                conn = ds.getConnection();
-                String query = String.format("SELECT COUNT(*) FROM `mail` WHERE `mailid`='%s'",
-                        msg.searchHeader("Message-ID"));
+                return ds.getConnection();
+            } catch (NamingException | SQLException e) {
+                context.log(String.format("'%s'", msgId), e);
+            }
+            return null;
+        }
+
+        private boolean alreadyPresent(Connection conn, String msgId) {
+            try {
+                String query = String.format("SELECT COUNT(*) FROM `mail` WHERE `mailid`='%s'", msgId);
                 Statement stmt = conn.createStatement();
                 ResultSet rs = stmt.executeQuery(query);
                 while(rs.next()) {
                     int nb  = rs.getInt(1);
                     if(nb>0) {
                         // log the fact that we do not treat a mail already treated
-                        context.log(String.format("Mailid '%s' already received and indexed",
-                                msg.searchHeader("Message-ID")));
-                        return;
+                        context.log(String.format("Mailid '%s' already received and indexed", msgId));
+                        return true;
                     }
                 }
                 rs.close();
                 stmt.close();
-            } catch (NamingException | SQLException e) {
-                context.log(String.format("'%s'", msg.searchHeader("Message-ID")), e);
+            } catch (SQLException e) {
+                context.log(String.format("'%s'", msgId), e);
             }
+            return false;
+        }
 
-            // write mail to disk
-            String filepath = "";
+        private String writeToDisk(MimeMessage msg) {
             try {
-                filepath = context.getInitParameter("mailStoreBasePath") +
+                String filepath = context.getInitParameter("mailStoreBasePath") +
                         new SimpleDateFormat("yyyy/MM/dd/").format(new Date()) +
                         msg.searchHeader("Message-ID")
                                 .replace('<', '_')
@@ -170,12 +234,16 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
                 context.log("done: " + filepath);
 
                 FileUtils.writeStringToFile(new File(filepath), completeMail, "UTF-8");
+                return filepath;
             } catch (IOException e) {
                 // log write to disk failed
                 context.log(String.format("Writing file for mail id '%s' failed",
                         msg.searchHeader("Message-ID")), e);
             }
-            // create database record for mail & index data
+            return "";
+        }
+
+        private Mail getMailFromMimeMessage(MimeMessage msg, String filepath) {
             Tika tika = new Tika();
 
             Mail m = new Mail();
@@ -184,7 +252,12 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
             // From
             m.setMailfrom(msg.searchHeader("from"));
             // X-Spam-Score
-            m.setSpamScore(Double.parseDouble(msg.searchHeader("X-Spam-Score")));
+            try {
+                m.setSpamScore(Double.parseDouble(msg.searchHeader("X-Spam-Score")));
+            } catch (NullPointerException | NumberFormatException e) {
+                // if no SpamScore Header, consider as no SPAM
+                m.setSpamScore(0.0);
+            }
             // Subject
             try {
                 // encoded like =?utf-8...
@@ -235,7 +308,7 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
                 m.setBodyType(Mail.HTML);
 
                 try {
-                    bodyString = tika.parseToString(new ByteArrayInputStream(msg.getHTMLBody().getBytes(StandardCharsets.UTF_8)));
+                    this.bodyString = tika.parseToString(new ByteArrayInputStream(msg.getHTMLBody().getBytes(StandardCharsets.UTF_8)));
                 } catch (TikaException | IOException e) {
                     context.log(String.format("'%s'", m.getMailid()), e);
                 }
@@ -246,17 +319,21 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
             }
 
             // Attachments
-            Map<String, String> attach = new HashMap<>();
+            this.attach = new HashMap<>();
             String attachBody;
-            Decoder decoder = Base64.getDecoder();
+            // Decoder decoder = Base64.getDecoder();
+            int compteur = 0;
             for(MimePart mp: msg.getParts()) {
-                String[] mimeparts = mp.searchHeader("Content-Disposition").split("=");
+                String[] mimeparts = new String[0];
+                try {
+                    mimeparts = mp.searchHeader("Content-Disposition").split("=");
+                } catch (NullPointerException e) {
+                    // context.log(String.format("'%s'", m.getMailid()), e);
+                }
                 Attachment att = new Attachment(mp.getMimeType(),
-                        (mimeparts.length > 1) ? mimeparts[1] : ""
+                        (mimeparts.length > 1) ? mimeparts[1] : "part-" + compteur
                 );
                 m.addAttachment(att);
-
-                //context.log("ATTACHMENT BODY: " + mp.getBody());
 
                 try {
                     if (mp.getBody() != null && mp.getBody().length() > 10) {
@@ -276,33 +353,10 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
                     context.log("ATTACHMENT BODY: " + mp.getBody());
                     context.log(String.format("'%s'", m.getMailid()), e);
                 }
-            }
 
-            // create Lucene index
-            try {
-                lmi.indexMail(m.getMailid(), m.getSubject(), bodyString, m.getLuceneDt(), attach);
-            } catch (IOException e) {
-                context.log(String.format("'%s'", m.getMailid()), e);
+                compteur++;
             }
-
-            // try to insert data in MySQL
-            try {
-                m.insert(conn);
-            } catch (SQLException e) {
-                context.log(String.format("'%s'", m.getMailid()), e);
-            }
-
-            // at the end, release DB connexion
-            try {
-                if(conn != null) {
-                    conn.close();
-                }
-            } catch (SQLException e) {
-                context.log(String.format("'%s'", m.getMailid()), e);
-            }
-
-            context.log("SAVED: " + m.getMailid());
+            return m;
         }
-
     }
 }

@@ -58,7 +58,7 @@ public class LuceneMailIndexer extends Thread {
         Document doc = new Document();
         doc.add(new StringField("mailId", mailId, Field.Store.YES));
         doc.add(new TextField("subject", subject, Field.Store.YES));
-        doc.add(new TextField("body", body, Field.Store.YES));
+        doc.add(new TextField("body", (body == null) ? "" : body, Field.Store.YES));
         doc.add(new StringField("date", dt, Field.Store.YES));
         //w.addDocument(doc);
         toWrite.add(doc);
