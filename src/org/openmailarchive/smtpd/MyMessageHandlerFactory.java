@@ -350,7 +350,7 @@ class MyMessageHandlerFactory implements MessageHandlerFactory {
                         context.log(mp.getBody());
                     }
                 } catch (TikaException | IOException e) {
-                    context.log("ATTACHMENT BODY: " + mp.getBody());
+                    // context.log("ATTACHMENT BODY: " + mp.getBody());
                     context.log(String.format("'%s'", m.getMailid()), e);
                 }
 
